@@ -118,10 +118,15 @@ const RADIO_CLIPS = [
   { band: 'health-low',  file: 'radio-health-low-3.mp3' },
   { band: 'joy-high',    file: 'radio-joy-high-1.mp3' },
   { band: 'joy-high',    file: 'radio-joy-high-2.mp3' },
+  { band: 'joy-high',    file: 'radio-joy-high-3.mp3' },
   { band: 'joy-low',     file: 'radio-joy-low-1.mp3' },
   { band: 'joy-low',     file: 'radio-joy-low-2.mp3' },
+  { band: 'joy-low',     file: 'radio-joy-low-3.mp3' },
+  { band: 'joy-low',     file: 'radio-joy-low-4.mp3' },
+  { band: 'joy-low',     file: 'radio-joy-low-5.mp3' },
   { band: 'neutral',     file: 'radio-neutral-1.mp3' },
   { band: 'neutral',     file: 'radio-neutral-2.mp3' },
+  { band: 'neutral',     file: 'radio-neutral-3.mp3' },
 ];
 const radioAudio = new Audio(); radioAudio.preload = 'none';
 let radioPlaying = false;
@@ -232,6 +237,7 @@ function reset() {
 const zaddy = { x:450, y:340, face:1, dirY:0, bob:0, workout:null, workT:0, moving:false, speed:200, dance:0, petting:false };
 
 function say(m, t=3){ game.msg = m; game.msgT = t; }
+function fmtTime(s){ const m = Math.floor(s/60); return m + ':' + String(s%60).padStart(2,'0'); }
 function whine(lines){   // weak-body complaints, rate-limited so he's whiny but not unbearable
   if (game.t - game.lastWhine < 3.5) return;
   game.lastWhine = game.t;
@@ -1387,8 +1393,14 @@ function drawEnd(){
   ctx.fillText(game.win ? '🍞 MASTER BAKER ZADDY 🍞' : 'GAME OVER', W/2, H/2 - 40);
   ctx.fillStyle = '#f3e7d3'; ctx.font = '18px Trebuchet MS';
   ctx.fillText(game.win ? `${game.goal} perfect loaves, and he can still see his feet. Legend.` : game.reason, W/2, H/2 + 4);
+  let promptY = H/2 + 48;
+  if (game.win){
+    ctx.fillStyle = '#9ed0e8'; ctx.font = 'bold 20px Trebuchet MS';
+    ctx.fillText(`⏱️ ${fmtTime(Math.max(0, Math.floor(game.t)))} to five loaves`, W/2, H/2 + 34);
+    promptY = H/2 + 72;
+  }
   ctx.font = 'bold 16px Trebuchet MS'; ctx.fillStyle = '#ffd966';
-  ctx.fillText('Press R to rise again', W/2, H/2 + 48);
+  ctx.fillText('Press R to rise again', W/2, promptY);
 }
 
 reset();

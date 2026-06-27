@@ -219,6 +219,7 @@ function createStats(initial = { joy: 72, health: 60, clout: 88 }) {
   const start = { ...initial };
   const values = { ...initial };
   let loaves = 0;
+  let baked = 0;
   const subs = [];
   const emit = (k) => {
     for (const cb of subs) cb(k, values[k]);
@@ -239,16 +240,21 @@ function createStats(initial = { joy: 72, health: 60, clout: 88 }) {
     },
     reset() {
       loaves = 0;
+      baked = 0;
       Object.keys(values).forEach((k) => this.set(k, start[k]));
     },
     get loaves() {
       return loaves;
+    },
+    get baked() {
+      return baked;
     },
     get shelfMax() {
       return SHELF_MAX;
     },
     addLoaf() {
       loaves = Math.min(loaves + 1, SHELF_MAX);
+      baked++;
     },
     consumeLoaf() {
       if (loaves <= 0) return false;
@@ -2861,6 +2867,7 @@ const CLIPS = [
   { band: "clout-veryhigh", file: "radio-clout-veryhigh-1.mp3" },
   { band: "clout-veryhigh", file: "radio-clout-veryhigh-2.mp3" },
   { band: "clout-veryhigh", file: "radio-clout-veryhigh-3.mp3" },
+  { band: "clout-veryhigh", file: "radio-clout-veryhigh-4.mp3" },
   { band: "clout-high", file: "radio-clout-high-1.mp3" },
   { band: "clout-high", file: "radio-clout-high-2.mp3" },
   { band: "clout-low", file: "radio-clout-low-1.mp3" },
@@ -2874,10 +2881,15 @@ const CLIPS = [
   { band: "health-low", file: "radio-health-low-3.mp3" },
   { band: "joy-high", file: "radio-joy-high-1.mp3" },
   { band: "joy-high", file: "radio-joy-high-2.mp3" },
+  { band: "joy-high", file: "radio-joy-high-3.mp3" },
   { band: "joy-low", file: "radio-joy-low-1.mp3" },
   { band: "joy-low", file: "radio-joy-low-2.mp3" },
+  { band: "joy-low", file: "radio-joy-low-3.mp3" },
+  { band: "joy-low", file: "radio-joy-low-4.mp3" },
+  { band: "joy-low", file: "radio-joy-low-5.mp3" },
   { band: "neutral", file: "radio-neutral-1.mp3" },
-  { band: "neutral", file: "radio-neutral-2.mp3" }
+  { band: "neutral", file: "radio-neutral-2.mp3" },
+  { band: "neutral", file: "radio-neutral-3.mp3" }
 ];
 function bandScore(band, s) {
   switch (band) {
@@ -4041,6 +4053,9 @@ const makeBake = (g) => {
   const meterFill = document.createElement("div");
   meterFill.style.cssText = "height:100%;width:0%;border-radius:8px;background:linear-gradient(90deg,#00e5cc,#ff8c00);transition:width .12s ease";
   meterWrap.appendChild(meterFill);
+  const zoneMark = document.createElement("div");
+  zoneMark.style.cssText = "position:absolute;top:0;bottom:0;left:62%;width:20%;background:rgba(61,220,132,0.45);border-left:2px solid #3ddc84;border-right:2px solid #3ddc84;display:none";
+  meterWrap.appendChild(zoneMark);
   ui.body.appendChild(meterWrap);
   const actBtn = document.createElement("button");
   actBtn.style.cssText = "position:absolute;bottom:120px;left:50%;transform:translateX(-50%);z-index:13;background:linear-gradient(135deg,#ff2d78,#ff8c00);color:#fff;border:none;border-radius:30px;padding:16px 40px;font-size:18px;font-weight:800;box-shadow:0 6px 24px rgba(255,45,120,0.4);display:none";
@@ -4051,7 +4066,9 @@ const makeBake = (g) => {
   });
   let step = 0;
   let meter = 0;
-  let starterHealth = 0;
+  let starterFed = false, starterVal = 0, starterStopped = false, starterZone = [0.62, 0.82];
+  let mixAng = 0, mixLastA = 0, mixAccum = 0, mixGrabbed = false, mixRevs = 0;
+  const mixGoal = 4;
   let kneadProg = 0;
   let proofVal = 0, proofStopped = false, proofZone = [0.62, 0.82];
   let bakeVal = 0, bakeStopped = false, bakeZone = [0.6, 0.85];
@@ -4066,20 +4083,27 @@ const makeBake = (g) => {
   function startStep(s) {
     step = s;
     meter = 0;
+    meterFill.style.width = "0%";
+    zoneMark.style.display = "none";
     if (s === 0) {
-      setBanner("STEP 1 · Tap the jar over and over to feed the starter 🫧");
+      setBanner("STEP 1 · Tap the jar once to feed the starter 🫧");
       actBtn.style.display = "none";
+      starterFed = false; starterVal = 0; starterStopped = false;
+    } else if (s === 5) {
+      setBanner("STEP 2 · Mix — swipe in circles to blend the dough 🥣");
+      actBtn.style.display = "none";
+      mixAng = -Math.PI / 2; mixLastA = 0; mixAccum = 0; mixGrabbed = false; mixRevs = 0;
     } else if (s === 1) {
-      setBanner("STEP 2 · Knead — swipe left ↔ right across the dough ✋");
+      setBanner("STEP 3 · Knead — swipe left ↔ right across the dough ✋");
       actBtn.style.display = "none";
     } else if (s === 2) {
-      setBanner("STEP 3 · Proof rising — hit STOP in the green zone");
+      setBanner("STEP 4 · Proof rising — hit STOP in the green zone");
       actBtn.style.display = "block";
       actBtn.textContent = "STOP";
       proofVal = 0;
       proofStopped = false;
     } else if (s === 3) {
-      setBanner("STEP 4 · Baking — PULL OUT in the green zone (not too early, not burnt!)");
+      setBanner("STEP 5 · Baking — PULL OUT in the green zone (not too early, not burnt!)");
       actBtn.style.display = "block";
       actBtn.textContent = "PULL OUT";
       bakeVal = 0;
@@ -4092,7 +4116,15 @@ const makeBake = (g) => {
   }
   actBtn.addEventListener("click", (e) => {
     e.preventDefault();
-    if (step === 2 && !proofStopped) {
+    if (step === 0 && starterFed && !starterStopped) {
+      starterStopped = true;
+      if (starterVal > starterZone[1]) {
+        result = "starterdead";
+        setTimeout(finish, 700);
+      } else {
+        setTimeout(() => startStep(5), 700);
+      }
+    } else if (step === 2 && !proofStopped) {
       proofStopped = true;
       if (proofVal >= proofZone[0] && proofVal <= proofZone[1]) ;
       else if (proofVal > proofZone[1]) {
@@ -4124,30 +4156,60 @@ const makeBake = (g) => {
     const r = ui.cv.getBoundingClientRect();
     const x = e.clientX - r.left, y = e.clientY - r.top;
     if (step === 0) {
-      starterHealth = clamp(starterHealth + 0.09, 0, 1);
-      meter = starterHealth;
-      meterFill.style.width = meter * 100 + "%";
       for (let i = 0; i < 3; i++) bubbles.push({ x: x + rand(-20, 20), y, vy: -rand(30, 70), r: rand(3, 8), a: 1 });
       zP._react = "feed";
       spawnFloat(e.clientX, e.clientY, "🫧");
-      if (starterHealth >= 1) {
-        setBanner("Starter is ALIVE! 🌟");
-        setTimeout(() => startStep(1), 600);
+      if (!starterFed) {
+        starterFed = true;
+        setBanner("Starter's rising — hit STOP in the green zone! 🫧");
+        actBtn.style.display = "block";
+        actBtn.textContent = "STOP";
+        zoneMark.style.display = "block";
       }
     } else if (step === 1) {
       dragLast = { x, y };
+    } else if (step === 5) {
+      const mcx = ui.cv._cssW / 2, mcy = ui.cv._cssH * 0.34;
+      if (Math.hypot(x - mcx, y - mcy) < Math.min(ui.cv._cssW, ui.cv._cssH) * 0.3) {
+        mixGrabbed = true;
+        mixLastA = Math.atan2(y - mcy, x - mcx);
+        mixAng = mixLastA;
+      }
     }
   }
   function onMove(e) {
-    if (step !== 1 || !dragLast) return;
     const r = ui.cv.getBoundingClientRect();
-    const x = e.clientX - r.left;
+    const x = e.clientX - r.left, y = e.clientY - r.top;
+    if (step === 5) {
+      if (!mixGrabbed) return;
+      const mcx = ui.cv._cssW / 2, mcy = ui.cv._cssH * 0.34;
+      const a = Math.atan2(y - mcy, x - mcx);
+      let d = a - mixLastA;
+      if (d > Math.PI) d -= TAU;
+      if (d < -Math.PI) d += TAU;
+      mixAng += d;
+      mixLastA = a;
+      if (d > 0) {
+        mixAccum += d;
+        if (mixAccum >= TAU) { mixAccum -= TAU; mixRevs++; }
+      }
+      meter = clamp(mixRevs / mixGoal, 0, 1);
+      meterFill.style.width = meter * 100 + "%";
+      zP._react = "knead";
+      if (mixRevs >= mixGoal) {
+        setBanner("Smooth batter! 🥣");
+        mixGrabbed = false;
+        setTimeout(() => startStep(1), 500);
+      }
+      return;
+    }
+    if (step !== 1 || !dragLast) return;
     const dx = x - dragLast.x;
     if (Math.abs(dx) > 14) {
       kneadProg = clamp(kneadProg + 0.045, 0, 1);
       meter = kneadProg;
       meterFill.style.width = meter * 100 + "%";
-      dragLast = { x, y: e.clientY - r.top };
+      dragLast = { x, y };
       zP._react = "knead";
       if (kneadProg >= 1) {
         setBanner("Dough is silky 😮‍💨");
@@ -4158,6 +4220,7 @@ const makeBake = (g) => {
   }
   function onUp() {
     dragLast = null;
+    mixGrabbed = false;
   }
   ui.cv.addEventListener("pointerdown", (e) => {
     e.preventDefault();
@@ -4200,6 +4263,16 @@ const makeBake = (g) => {
     },
     update(dt) {
       t += dt;
+      if (step === 0 && starterFed && !starterStopped) {
+        starterVal += dt * 0.32;
+        if (starterVal > 1.25) {
+          starterStopped = true;
+          result = "starterdead";
+          setTimeout(finish, 300);
+        }
+        meter = clamp(starterVal, 0, 1);
+        meterFill.style.width = Math.min(starterVal, 1) * 100 + "%";
+      }
       if (step === 2 && !proofStopped) {
         proofVal += dt * 0.32;
         if (proofVal > 1.25) {
@@ -4279,13 +4352,39 @@ const makeBake = (g) => {
       }
       const cx = w / 2, cy = h * 0.34;
       if (step === 0) {
-        drawJar(ctx, cx, cy, starterHealth, t);
+        drawJar(ctx, cx, cy, clamp(starterVal, 0, 1), t);
         for (const b of bubbles) {
           ctx.fillStyle = "rgba(230,210,150," + b.a + ")";
           ctx.beginPath();
           ctx.ellipse(b.x, b.y, b.r, b.r, 0, 0, TAU);
           ctx.fill();
         }
+      } else if (step === 5) {
+        const R = Math.min(w, h) * 0.16;
+        ctx.save();
+        ctx.fillStyle = "#d8b88a";
+        ctx.beginPath(); ctx.ellipse(cx, cy, R * 0.9, R * 0.74, 0, 0, TAU); ctx.fill();
+        ctx.strokeStyle = "rgba(150,110,60,0.5)"; ctx.lineWidth = 4; ctx.lineCap = "round";
+        ctx.beginPath();
+        for (let i = 0; i < 28; i++) {
+          const aa = mixAng + i * 0.4, rr = R * 0.7 * (1 - i / 32);
+          const px = cx + Math.cos(aa) * rr, py = cy + Math.sin(aa) * rr * 0.82;
+          i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+        }
+        ctx.stroke();
+        ctx.strokeStyle = "rgba(255,255,255,0.28)"; ctx.lineWidth = 8;
+        ctx.beginPath(); ctx.ellipse(cx, cy, R, R * 0.84, 0, 0, TAU); ctx.stroke();
+        ctx.strokeStyle = "rgba(0,229,204,0.65)"; ctx.lineWidth = 5; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.arc(cx, cy, R + 12, -Math.PI / 2, -Math.PI / 2 + meter * TAU); ctx.stroke();
+        const hx = cx + Math.cos(mixAng) * R * 0.2, hy = cy + Math.sin(mixAng) * R * 0.2;
+        const tx = cx + Math.cos(mixAng) * R * 1.15, ty = cy + Math.sin(mixAng) * R * 1.15;
+        ctx.strokeStyle = "#9c6a39"; ctx.lineWidth = 7; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(tx, ty); ctx.stroke();
+        ctx.fillStyle = "#cf9255";
+        ctx.beginPath(); ctx.ellipse(cx + Math.cos(mixAng) * R * 0.72, cy + Math.sin(mixAng) * R * 0.72, 13, 10, mixAng, 0, TAU); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.font = "12px -apple-system,sans-serif"; ctx.textAlign = "center";
+        ctx.fillText(mixRevs + " / " + mixGoal + " swirls", cx, cy + R + 38);
+        ctx.restore();
       } else if (step === 1) {
         drawDough(ctx, cx, cy, kneadProg, t, true, true);
       } else if (step === 2) {
@@ -4347,7 +4446,7 @@ const makeBake = (g) => {
         ctx.fillStyle = "#fff";
         ctx.font = "bold 22px -apple-system,sans-serif";
         ctx.textAlign = "center";
-        const msg = result === "great" ? "PERFECT BAKE! +Joy" : result === "overproof" ? "Over-proofed 😩" : result === "burnt" ? "Burnt to a crisp 🔥" : result === "underbaked" ? "Underbaked 🫳 (pulled too early)" : "Not bad";
+        const msg = result === "great" ? "PERFECT BAKE! +Joy" : result === "starterdead" ? "Starter overfed — it died 💀" : result === "overproof" ? "Over-proofed 😩" : result === "burnt" ? "Burnt to a crisp 🔥" : result === "underbaked" ? "Underbaked 🫳 (pulled too early)" : "Not bad";
         ctx.fillText(msg, cx, cy + 96);
       }
       ctx.save();
@@ -6229,24 +6328,43 @@ function boot() {
   const goEl = document.getElementById("game-over");
   const goCause = document.getElementById("gameover-cause");
   const goRestart = document.getElementById("gameover-restart");
+  const goEmoji = document.getElementById("gameover-emoji");
+  const goTitle = document.getElementById("gameover-title");
   let gameOver = false;
+  let elapsed = 0;
+  const GOAL_LOAVES = 5;
   const STATS = ["joy", "health", "clout"];
   const CAUSE = {
     joy: "The light left his eyes — joy hit zero. 💔",
     health: "He let himself go completely — health hit zero. 🫠",
     clout: "The algorithm forgot him — clout hit zero. 👻"
   };
+  function fmtTime(s) {
+    const m = Math.floor(s / 60);
+    return m + ":" + String(s % 60).padStart(2, "0");
+  }
   function endGame(k) {
     router.close();
     if (stats.get(k) > 0) return;
     gameOver = true;
+    if (goEmoji) goEmoji.textContent = "🥀";
+    if (goTitle) goTitle.textContent = "GAME OVER";
     if (goCause) goCause.textContent = CAUSE[k];
+    goEl == null ? void 0 : goEl.classList.add("show");
+  }
+  function winGame() {
+    router.close();
+    gameOver = true;
+    if (goEmoji) goEmoji.textContent = "🏆";
+    if (goTitle) goTitle.textContent = "MASTER BAKER!";
+    if (goCause) goCause.textContent = GOAL_LOAVES + " loaves baked in " + fmtTime(Math.max(0, Math.floor(elapsed))) + ". Iconic.";
     goEl == null ? void 0 : goEl.classList.add("show");
   }
   goRestart == null ? void 0 : goRestart.addEventListener("click", () => {
     stats.reset();
     home.reset();
     gameOver = false;
+    elapsed = 0;
     goEl == null ? void 0 : goEl.classList.remove("show");
     showBubble("🍞", "Fresh start, gorgeous. Keep me alive this time.");
   });
@@ -6269,6 +6387,7 @@ function boot() {
     lastTS = ts;
     dt = Math.min(dt, 0.05);
     if (!gameOver) {
+      elapsed += dt;
       for (const k of STATS) stats.add(k, -DECAY[k] * dt);
       for (const k of STATS) {
         if (stats.get(k) <= 0) {
@@ -6276,6 +6395,7 @@ function boot() {
           break;
         }
       }
+      if (!gameOver && stats.baked >= GOAL_LOAVES) winGame();
     }
     if (!gameOver) home.tickAmbient(dt);
     if (router.current === "HOME") {
@@ -6495,6 +6615,14 @@ html, body {
   font-variant-numeric: tabular-nums;
   min-width: 20px;
   text-align: right;
+}
+
+/* Narrow screens: when three pills + bars can't fit without the numbers
+   crowding the next label, drop the bars and keep just LABEL + value
+   (label hugs left, number hugs right inside each pill). */
+@media (max-width: 400px) {
+  #hud .stat-bar { display: none; }
+  #hud .stat-pill { justify-content: space-between; }
 }
 
 /* ================================================
