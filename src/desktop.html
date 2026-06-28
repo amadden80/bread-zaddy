@@ -127,6 +127,23 @@ const RADIO_CLIPS = [
   { band: 'neutral',     file: 'radio-neutral-1.mp3' },
   { band: 'neutral',     file: 'radio-neutral-2.mp3' },
   { band: 'neutral',     file: 'radio-neutral-3.mp3' },
+  { band: 'cat',         file: 'radio-cat-1.mp3' },
+  { band: 'cat',         file: 'radio-cat-2.mp3' },
+  { band: 'cat',         file: 'radio-cat-3.mp3' },
+  { band: 'cat',         file: 'radio-cat-4.mp3' },
+  { band: 'lift',        file: 'radio-lift-1.mp3' },
+  { band: 'lift',        file: 'radio-lift-2.mp3' },
+  { band: 'lift',        file: 'radio-lift-3.mp3' },
+  { band: 'lift',        file: 'radio-lift-4.mp3' },
+  { band: 'bake',        file: 'radio-bake-1.mp3' },
+  { band: 'bake',        file: 'radio-bake-2.mp3' },
+  { band: 'bake',        file: 'radio-bake-3.mp3' },
+  { band: 'bake',        file: 'radio-bake-4.mp3' },
+  { band: 'joy-high',    file: 'radio-joy-high-4.mp3' },
+  { band: 'joy-high',    file: 'radio-joy-high-5.mp3' },
+  { band: 'health-high', file: 'radio-health-high-3.mp3' },
+  { band: 'health-high', file: 'radio-health-high-4.mp3' },
+  { band: 'health-low',  file: 'radio-health-low-4.mp3' },
 ];
 const radioAudio = new Audio(); radioAudio.preload = 'none';
 let radioPlaying = false;
@@ -137,7 +154,7 @@ radioAudio.addEventListener('error',   () => { radioPlaying = false; });
 const radioBag = new Set();
 
 function radioStats(){
-  return { joy: game.joy, health: (game.arms + game.legs + game.core) / 3 };
+  return { joy: game.joy, health: (game.arms + game.legs + game.core) / 3, lastActivity: game.lastActivity };
 }
 // Higher = better match; a band whose condition isn't met scores below neutral.
 function radioBand(band, s){
@@ -146,10 +163,19 @@ function radioBand(band, s){
     case 'health-low':  return s.health <= 35 ? 88 + (35 - s.health) : -100;
     case 'joy-high':    return s.joy >= 68 ? 64 + (s.joy - 68) : -100;
     case 'joy-low':     return s.joy <= 35 ? 74 + (35 - s.joy) : -100;
-    default:            return 8;   // neutral
+    case 'neutral':     return 8;
+    default:            return -100;  // activity bands never win mood scoring
   }
 }
 function radioPick(s){
+  if (s && s.lastActivity){
+    const act = RADIO_CLIPS.filter(c => c.band === s.lastActivity && !radioBag.has(c.file));
+    if (act.length){
+      const pickAct = act[Math.floor(Math.random() * act.length)];
+      radioBag.add(pickAct.file);
+      return pickAct;
+    }
+  }
   let pool = RADIO_CLIPS.filter(c => !radioBag.has(c.file));
   if (pool.length === 0){ radioBag.clear(); pool = RADIO_CLIPS.slice(); }  // refill
   let best = -Infinity, top = [];
@@ -164,6 +190,7 @@ function radioPick(s){
 }
 function playRadio(){
   const clip = radioPick(radioStats());
+  game.lastActivity = null;   // consumed — only the first tap after an activity is themed
   radioAudio.src = RADIO_BASE + clip.file;
   radioAudio.currentTime = 0;
   // Click is a user gesture, so play() is allowed; swallow autoplay rejects.
@@ -217,6 +244,7 @@ let game;
 function reset() {
   game = {
     t: 0,
+    lastActivity: null,   // "cat" | "lift" | "bake" — set by actions, read+cleared by the radio
     over: false, win:false, reason:'',
     loaves: 0, goal: 5,
     starter: 70,
@@ -353,6 +381,7 @@ function update(dt){
     cat.pauseT = Math.max(cat.pauseT, .5);            // it settles in to be loved
     cat.face = zaddy.x < cat.x ? -1 : 1;
     game.joy = Math.min(100, game.joy + dt * 30);     // petting fills the JOY bar
+    game.lastActivity = 'cat';
     if (Math.random() < dt*7) game.hearts.push({ x: cat.x + (Math.random()-.5)*22, y: cat.y-14, vy: -32-Math.random()*22, life: 1.1 });
     if (game.t - game.lastMeow > 4){ game.lastMeow = game.t; say(['Who\'s a good loaf-loaf? 😻','*purr* ...this counts as cardio, right?','The cat demands tribute. Worth it.'][Math.floor(Math.random()*3)], 2); }
   } else if (cat.pauseT > 0){
@@ -421,17 +450,17 @@ function update(dt){
     }
     else if (near(stations.arms)){
       game.arms = Math.min(100, game.arms + 8);
-      zaddy.workout = 'arms'; zaddy.workT = 1;
+      zaddy.workout = 'arms'; zaddy.workT = 1; game.lastActivity = 'lift';
       say(['Curls for the swirls! 💪','Biceps like baguettes!','Pump that crumb!'][Math.floor(Math.random()*3)], 1.4);
     }
     else if (near(stations.legs)){
       game.legs = Math.min(100, game.legs + 8);
-      zaddy.workout = 'legs'; zaddy.workT = 1;
+      zaddy.workout = 'legs'; zaddy.workT = 1; game.lastActivity = 'lift';
       say(['Squat that sourdough! 🦵','Never skip leg day!','Quads of a proofing god!'][Math.floor(Math.random()*3)], 1.4);
     }
     else if (near(stations.core)){
       game.core = Math.min(100, game.core + 8);
-      zaddy.workout = 'core'; zaddy.workT = 1;
+      zaddy.workout = 'core'; zaddy.workT = 1; game.lastActivity = 'lift';
       say(['Crunches > crusts! 🔥','Abs are kneaded in the gym!','Core of steel, crumb of silk!'][Math.floor(Math.random()*3)], 1.4);
     }
     else if (near(stations.starter)){
@@ -499,7 +528,7 @@ function update(dt){
       else if (game.carry === 'proofed' && d.oven) say('Oven\'s full! Wait for that loaf to finish.');
       else if (d.oven && !game.carry){
         if (d.oven.p >= 75){
-          game.loaves++; d.oven = null;
+          game.loaves++; d.oven = null; game.lastActivity = 'bake';
           game.core -= 10; game.arms -= 3; game.legs -= 3;
           game.joy = 100;   // a perfect loaf is pure joy
           for (let i=0;i<14;i++) game.crumbs.push({x:zaddy.x, y:zaddy.y-40, vx:(Math.random()-.5)*160, vy:-Math.random()*150, life:.8+Math.random()*.5});

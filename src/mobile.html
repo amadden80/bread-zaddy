@@ -225,6 +225,7 @@ function createStats(initial = { joy: 72, health: 60, clout: 88 }) {
     for (const cb of subs) cb(k, values[k]);
   };
   return {
+    lastActivity: null,   // "cat" | "tennis" | "lift" | "bake" — set by mini-games, read+cleared by the radio
     get: (k) => values[k],
     set(k, v) {
       values[k] = clamp(v, 0, 100);
@@ -241,6 +242,7 @@ function createStats(initial = { joy: 72, health: 60, clout: 88 }) {
     reset() {
       loaves = 0;
       baked = 0;
+      this.lastActivity = null;
       Object.keys(values).forEach((k) => this.set(k, start[k]));
     },
     get loaves() {
@@ -2889,7 +2891,32 @@ const CLIPS = [
   { band: "joy-low", file: "radio-joy-low-5.mp3" },
   { band: "neutral", file: "radio-neutral-1.mp3" },
   { band: "neutral", file: "radio-neutral-2.mp3" },
-  { band: "neutral", file: "radio-neutral-3.mp3" }
+  { band: "neutral", file: "radio-neutral-3.mp3" },
+  { band: "cat", file: "radio-cat-1.mp3" },
+  { band: "cat", file: "radio-cat-2.mp3" },
+  { band: "cat", file: "radio-cat-3.mp3" },
+  { band: "cat", file: "radio-cat-4.mp3" },
+  { band: "tennis", file: "radio-tennis-1.mp3" },
+  { band: "tennis", file: "radio-tennis-2.mp3" },
+  { band: "tennis", file: "radio-tennis-3.mp3" },
+  { band: "tennis", file: "radio-tennis-4.mp3" },
+  { band: "lift", file: "radio-lift-1.mp3" },
+  { band: "lift", file: "radio-lift-2.mp3" },
+  { band: "lift", file: "radio-lift-3.mp3" },
+  { band: "lift", file: "radio-lift-4.mp3" },
+  { band: "bake", file: "radio-bake-1.mp3" },
+  { band: "bake", file: "radio-bake-2.mp3" },
+  { band: "bake", file: "radio-bake-3.mp3" },
+  { band: "bake", file: "radio-bake-4.mp3" },
+  { band: "joy-high", file: "radio-joy-high-4.mp3" },
+  { band: "joy-high", file: "radio-joy-high-5.mp3" },
+  { band: "health-high", file: "radio-health-high-3.mp3" },
+  { band: "health-high", file: "radio-health-high-4.mp3" },
+  { band: "health-low", file: "radio-health-low-4.mp3" },
+  { band: "clout-high", file: "radio-clout-high-3.mp3" },
+  { band: "clout-high", file: "radio-clout-high-4.mp3" },
+  { band: "clout-low", file: "radio-clout-low-3.mp3" },
+  { band: "clout-veryhigh", file: "radio-clout-veryhigh-5.mp3" }
 ];
 function bandScore(band, s) {
   switch (band) {
@@ -2911,6 +2938,8 @@ function bandScore(band, s) {
       return s.joy <= 35 ? 74 + (35 - s.joy) : -100;
     case "neutral":
       return 8;
+    default:
+      return -100;
   }
 }
 function createRadio() {
@@ -2933,6 +2962,14 @@ function createRadio() {
   }
   const played = /* @__PURE__ */ new Set();
   function pick(s) {
+    if (s && s.lastActivity) {
+      const act = CLIPS.filter((c) => c.band === s.lastActivity && !played.has(c.file));
+      if (act.length) {
+        const chosen2 = act[Math.floor(Math.random() * act.length)];
+        played.add(chosen2.file);
+        return chosen2;
+      }
+    }
     let pool = CLIPS.filter((c) => !played.has(c.file));
     if (pool.length === 0) {
       played.clear();
@@ -3426,8 +3463,10 @@ function createHome(g, mainCanvas) {
         radio.play({
           joy: g.stats.get("joy"),
           health: g.stats.get("health"),
-          clout: g.stats.get("clout")
+          clout: g.stats.get("clout"),
+          lastActivity: g.stats.lastActivity
         });
+        g.stats.lastActivity = null;
         showBubble("📻", "Let's hear what they're saying about me…");
         homeReact("gram");
         zHome.targetH = -0.4;
@@ -4066,6 +4105,7 @@ const makeBake = (g) => {
   });
   let step = 0;
   let meter = 0;
+  let advancing = false;   // true while a step transition is scheduled — blocks input so a late swipe/tap can't queue a second advance
   let starterFed = false, starterVal = 0, starterStopped = false, starterZone = [0.62, 0.82];
   let mixAng = 0, mixLastA = 0, mixAccum = 0, mixGrabbed = false, mixRevs = 0;
   const mixGoal = 4;
@@ -4083,6 +4123,7 @@ const makeBake = (g) => {
   function startStep(s) {
     step = s;
     meter = 0;
+    advancing = false;
     meterFill.style.width = "0%";
     zoneMark.style.display = "none";
     if (s === 0) {
@@ -4116,8 +4157,10 @@ const makeBake = (g) => {
   }
   actBtn.addEventListener("click", (e) => {
     e.preventDefault();
+    if (advancing) return;
     if (step === 0 && starterFed && !starterStopped) {
       starterStopped = true;
+      advancing = true;
       if (starterVal > starterZone[1]) {
         result = "starterdead";
         setTimeout(finish, 700);
@@ -4126,6 +4169,7 @@ const makeBake = (g) => {
       }
     } else if (step === 2 && !proofStopped) {
       proofStopped = true;
+      advancing = true;
       if (proofVal >= proofZone[0] && proofVal <= proofZone[1]) ;
       else if (proofVal > proofZone[1]) {
         result = "overproof";
@@ -4139,6 +4183,7 @@ const makeBake = (g) => {
       }, 700);
     } else if (step === 3 && !bakeStopped) {
       bakeStopped = true;
+      advancing = true;
       if (bakeVal >= bakeZone[0] && bakeVal <= bakeZone[1]) {
         result = "great";
       } else if (bakeVal > bakeZone[1]) {
@@ -4153,6 +4198,7 @@ const makeBake = (g) => {
     startStep(4);
   }
   function onDown(e) {
+    if (advancing) return;
     const r = ui.cv.getBoundingClientRect();
     const x = e.clientX - r.left, y = e.clientY - r.top;
     if (step === 0) {
@@ -4178,6 +4224,7 @@ const makeBake = (g) => {
     }
   }
   function onMove(e) {
+    if (advancing) return;
     const r = ui.cv.getBoundingClientRect();
     const x = e.clientX - r.left, y = e.clientY - r.top;
     if (step === 5) {
@@ -4199,6 +4246,7 @@ const makeBake = (g) => {
       if (mixRevs >= mixGoal) {
         setBanner("Smooth batter! 🥣");
         mixGrabbed = false;
+        advancing = true;
         setTimeout(() => startStep(1), 500);
       }
       return;
@@ -4214,6 +4262,7 @@ const makeBake = (g) => {
       if (kneadProg >= 1) {
         setBanner("Dough is silky 😮‍💨");
         dragLast = null;
+        advancing = true;
         setTimeout(() => startStep(2), 500);
       }
     }
@@ -4232,6 +4281,7 @@ const makeBake = (g) => {
     if (committed || result === null) return;
     committed = true;
     if (result === "great") {
+      g.stats.lastActivity = "bake";
       g.stats.boost("joy", 0.25);
       g.stats.addLoaf();
       showBubble("🥖", "A gorgeous bake — onto the shelf she goes.");
@@ -4243,10 +4293,12 @@ const makeBake = (g) => {
       showBubble("🔥", "Too far. The crust wept. So did I.");
     } else if (result === "starterdead") {
       g.stats.add("joy", -5);
+      showBubble("💀", "Overfed the starter — it drowned. RIP.");
     } else if (result === "underbaked") {
       g.stats.add("joy", -4);
       showBubble("🫳", "Doughy in the middle — pulled her too soon.");
     } else {
+      g.stats.lastActivity = "bake";
       g.stats.boost("joy", 0.1);
       g.stats.addLoaf();
     }
@@ -4267,6 +4319,7 @@ const makeBake = (g) => {
         starterVal += dt * 0.32;
         if (starterVal > 1.25) {
           starterStopped = true;
+          advancing = true;
           result = "starterdead";
           setTimeout(finish, 300);
         }
@@ -4277,6 +4330,7 @@ const makeBake = (g) => {
         proofVal += dt * 0.32;
         if (proofVal > 1.25) {
           proofStopped = true;
+          advancing = true;
           result = "overproof";
           setTimeout(finish, 300);
         }
@@ -4287,6 +4341,7 @@ const makeBake = (g) => {
         bakeVal += dt * 0.3;
         if (bakeVal > 1.25) {
           bakeStopped = true;
+          advancing = true;
           result = "burnt";
           setTimeout(finish, 300);
         }
@@ -4518,6 +4573,7 @@ const makeTennis = (g) => {
   function commit() {
     if (committed) return;
     committed = true;
+    g.stats.lastActivity = "tennis";
     if (won) {
       g.stats.boost("joy", 0.25);
       g.stats.boost("health", 0.06);
@@ -5318,6 +5374,7 @@ const makeWorkout = (g) => {
   function commit() {
     if (committed) return;
     committed = true;
+    g.stats.lastActivity = "lift";
     if (won) {
       g.stats.boost("health", 0.25);
       g.stats.boost("joy", 0.1);
@@ -6065,6 +6122,7 @@ const makePetCat = (g) => {
   function commit() {
     if (committed) return;
     committed = true;
+    g.stats.lastActivity = "cat";
     g.stats.boost("joy", satisfied ? 0.25 : 0.05 + purr * 0.12);
     if (satisfied) showBubble("😻", "Ms. Mischka purred herself silly and pranced off. Pure bliss.");
     else if (purr > 0.3) showBubble("🐈", "She tolerates you. That's basically love.");
