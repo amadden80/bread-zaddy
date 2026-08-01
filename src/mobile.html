@@ -1336,6 +1336,31 @@ function drawZaddy(ctx, p) {
   }
   ctx.restore();
   ctx.restore();
+  if (BIRTHDAY) {
+    // 🎂 birthday party hat — cosmetic only. Still in head-block space, so it
+    // bobs and tilts with the head. Skull top is y=-48; hat clears it.
+    const hx = turn, base = -44, apex = -92;
+    ctx.fillStyle = "#ff2d78";
+    ctx.beginPath();
+    ctx.moveTo(hx - 17, base);
+    ctx.lineTo(hx, apex);
+    ctx.lineTo(hx + 17, base);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    for (let i = 1; i <= 2; i++) {
+      const f = i / 3, yy = base - (base - apex) * f, hw = 17 * (1 - f);
+      ctx.fillRect(hx - hw, yy - 2, hw * 2, 4);
+    }
+    ctx.fillStyle = "#ffd966";
+    ctx.beginPath();
+    ctx.ellipse(hx, apex - 1, 5, 5, 0, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = "#00e5cc";
+    ctx.beginPath();
+    ctx.ellipse(hx, base, 18, 4.5, 0, 0, TAU);
+    ctx.fill();
+  }
   ctx.restore();
   if (p.showLoaf) {
     ctx.save();
@@ -1441,6 +1466,80 @@ const MOTE_SEEDS = [
   0.19,
   0.74
 ];
+// 🎂 Aug 1 wall decorations — cosmetic only, drawn on the loft wall behind the
+// props and behind Zaddy. Virtual scene space is 400x720.
+function drawBirthdayDecor(ctx, t) {
+  // ── bunting garland strung across the upper wall ──
+  const x0 = 34, x1 = 366, top = 96, sag = 30;
+  const midX = (x0 + x1) / 2, midY = top + sag;
+  ctx.strokeStyle = "rgba(255,255,255,0.30)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(x0, top);
+  ctx.quadraticCurveTo(midX, midY, x1, top);
+  ctx.stroke();
+  const cols = ["#ff2d78", "#ffd966", "#00e5cc", "#bf5fff", "#3ddc84"];
+  for (let i = 0; i < 11; i++) {
+    const f = (i + 0.5) / 11;
+    const px = (1 - f) * (1 - f) * x0 + 2 * (1 - f) * f * midX + f * f * x1;
+    const py = (1 - f) * (1 - f) * top + 2 * (1 - f) * f * midY + f * f * top;
+    ctx.fillStyle = cols[i % cols.length];
+    ctx.beginPath();
+    ctx.moveTo(px - 6.5, py);
+    ctx.lineTo(px + 6.5, py);
+    ctx.lineTo(px, py + 12);
+    ctx.closePath();
+    ctx.fill();
+  }
+  // ── "Happy Birthday!" sign hanging near the top of the window ──
+  const sx = 110, sy = 150, sw = 106, sh = 30;   // kept inside the scene's horizontal safe crop
+  ctx.save();
+  ctx.strokeStyle = "rgba(255,255,255,0.4)";
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();                                  // two cords up to a hook
+  ctx.moveTo(sx - sw / 2 + 8, sy - sh / 2);
+  ctx.lineTo(sx, sy - sh / 2 - 18);
+  ctx.moveTo(sx + sw / 2 - 8, sy - sh / 2);
+  ctx.lineTo(sx, sy - sh / 2 - 18);
+  ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,0.75)";         // hook
+  ctx.beginPath();
+  ctx.ellipse(sx, sy - sh / 2 - 19, 2.4, 2.4, 0, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = "#3a2350";                        // placard
+  roundRect2(ctx, sx - sw / 2, sy - sh / 2, sw, sh, 6);
+  ctx.fill();
+  ctx.strokeStyle = "#ffd966";
+  ctx.lineWidth = 2;
+  roundRect2(ctx, sx - sw / 2, sy - sh / 2, sw, sh, 6);
+  ctx.stroke();
+  ctx.fillStyle = "#ffd966";
+  ctx.font = "bold 11px -apple-system, system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("Happy Birthday!", sx, sy + 0.5);
+  ctx.restore();
+  // ── balloon pair bobbing in the clear wall pocket below the window ──
+  const bal = [[52, "#ff2d78"], [86, "#00e5cc"]];
+  for (let i = 0; i < bal.length; i++) {
+    const bx = bal[i][0];
+    const by = 300 + Math.sin(t * 1.2 + i * 1.4) * 4;
+    ctx.strokeStyle = "rgba(255,255,255,0.22)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(bx, by + 13);
+    ctx.quadraticCurveTo(bx + 4, by + 26, bx - 2, by + 36);
+    ctx.stroke();
+    ctx.fillStyle = bal[i][1];
+    ctx.beginPath();
+    ctx.ellipse(bx, by, 10, 12.5, 0, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.4)";
+    ctx.beginPath();
+    ctx.ellipse(bx - 3.5, by - 4.5, 2.6, 3.8, -0.4, 0, TAU);
+    ctx.fill();
+  }
+}
 function drawHomeScene(ctx, w, h, homeScale, homeOX, homeOY, deps) {
   const { amb, hotspots: hotspots2, loaves, pose, radioOn, drawZaddy: drawZaddy2 } = deps;
   ctx.clearRect(0, 0, w, h);
@@ -1693,6 +1792,7 @@ function drawHomeScene(ctx, w, h, homeScale, homeOX, homeOY, deps) {
     ctx.restore();
   }
   ctx.shadowBlur = 0;
+  if (BIRTHDAY) drawBirthdayDecor(ctx, amb.t);
   drawShelf(ctx, 120, 150, loaves);
   drawRadio(ctx, 112, 164, amb.t, radioOn);
   drawFrame(ctx, 200, 90);
@@ -2865,6 +2965,13 @@ function drawSignWalker(ctx, fan, wx, wy, ww, wh, k) {
   ctx.restore();
 }
 const BASE = "public/radio/";
+// August 1st is the Bread Zaddy's birthday — every year. Month/day only, never
+// the year, so it comes back around annually. Purely cosmetic + one radio clip;
+// nothing here touches gameplay.
+function isBirthday(d = /* @__PURE__ */ new Date()) {
+  return d.getMonth() === 7 && d.getDate() === 1;
+}
+let BIRTHDAY = isBirthday();   // resolved once at load; drives the hat, decor and the radio clip
 const CLIPS = [
   { band: "clout-veryhigh", file: "radio-clout-veryhigh-1.mp3" },
   { band: "clout-veryhigh", file: "radio-clout-veryhigh-2.mp3" },
@@ -2916,7 +3023,8 @@ const CLIPS = [
   { band: "clout-high", file: "radio-clout-high-3.mp3" },
   { band: "clout-high", file: "radio-clout-high-4.mp3" },
   { band: "clout-low", file: "radio-clout-low-3.mp3" },
-  { band: "clout-veryhigh", file: "radio-clout-veryhigh-5.mp3" }
+  { band: "clout-veryhigh", file: "radio-clout-veryhigh-5.mp3" },
+  { band: "birthday", file: "radio-birthday-1.mp3" }
 ];
 function bandScore(band, s) {
   switch (band) {
@@ -2961,7 +3069,15 @@ function createRadio() {
     });
   }
   const played = /* @__PURE__ */ new Set();
+  let birthdayAired = false;
   function pick(s) {
+    if (BIRTHDAY && !birthdayAired) {
+      const bday = CLIPS.find((c) => c.band === "birthday");
+      if (bday) {
+        birthdayAired = true;
+        return bday;
+      }
+    }
     if (s && s.lastActivity) {
       const act = CLIPS.filter((c) => c.band === s.lastActivity && !played.has(c.file));
       if (act.length) {
@@ -2970,10 +3086,13 @@ function createRadio() {
         return chosen2;
       }
     }
-    let pool = CLIPS.filter((c) => !played.has(c.file));
+    // The birthday clip is never part of normal rotation — only the first
+    // tap on Aug 1 above can air it.
+    const ROTATION = CLIPS.filter((c) => c.band !== "birthday");
+    let pool = ROTATION.filter((c) => !played.has(c.file));
     if (pool.length === 0) {
       played.clear();
-      pool = CLIPS.slice();
+      pool = ROTATION.slice();
     }
     let best = -Infinity;
     let top = [];

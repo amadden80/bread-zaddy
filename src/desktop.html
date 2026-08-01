@@ -144,6 +144,7 @@ const RADIO_CLIPS = [
   { band: 'health-high', file: 'radio-health-high-3.mp3' },
   { band: 'health-high', file: 'radio-health-high-4.mp3' },
   { band: 'health-low',  file: 'radio-health-low-4.mp3' },
+  { band: 'birthday',    file: 'radio-birthday-1.mp3' },
 ];
 const radioAudio = new Audio(); radioAudio.preload = 'none';
 let radioPlaying = false;
@@ -152,6 +153,12 @@ radioAudio.addEventListener('ended',   () => { radioPlaying = false; });
 radioAudio.addEventListener('pause',   () => { radioPlaying = false; });
 radioAudio.addEventListener('error',   () => { radioPlaying = false; });
 const radioBag = new Set();
+let birthdayAired = false;
+// August 1st is the Bread Zaddy's birthday — every year. Month/day only, never
+// the year, so it comes back around annually. Purely cosmetic + one radio clip;
+// nothing here touches gameplay.
+function isBirthday(d = new Date()){ return d.getMonth() === 7 && d.getDate() === 1; }
+let BIRTHDAY = isBirthday();   // resolved once at load; drives the hat, decor and the radio clip
 
 function radioStats(){
   return { joy: game.joy, health: (game.arms + game.legs + game.core) / 3, lastActivity: game.lastActivity };
@@ -168,6 +175,10 @@ function radioBand(band, s){
   }
 }
 function radioPick(s){
+  if (BIRTHDAY && !birthdayAired){
+    const bday = RADIO_CLIPS.find(c => c.band === 'birthday');
+    if (bday){ birthdayAired = true; return bday; }
+  }
   if (s && s.lastActivity){
     const act = RADIO_CLIPS.filter(c => c.band === s.lastActivity && !radioBag.has(c.file));
     if (act.length){
@@ -176,8 +187,11 @@ function radioPick(s){
       return pickAct;
     }
   }
-  let pool = RADIO_CLIPS.filter(c => !radioBag.has(c.file));
-  if (pool.length === 0){ radioBag.clear(); pool = RADIO_CLIPS.slice(); }  // refill
+  // The birthday clip is never part of normal rotation — only the first click
+  // on Aug 1 above can air it.
+  const ROTATION = RADIO_CLIPS.filter(c => c.band !== 'birthday');
+  let pool = ROTATION.filter(c => !radioBag.has(c.file));
+  if (pool.length === 0){ radioBag.clear(); pool = ROTATION.slice(); }  // refill
   let best = -Infinity, top = [];
   for (const c of pool){
     const sc = radioBand(c.band, s);
@@ -626,6 +640,54 @@ function draw(){
   if (game.over) drawEnd();
 }
 
+// 🎂 Aug 1 decorations — wall dressing only, drawn inside drawKitchen() so it
+// sits behind every station and behind Zaddy. Purely cosmetic.
+function drawBirthdayDecor(){
+  const t = game ? game.t : 0;
+  // bunting garland across the empty wall above the utensil rail
+  const x0 = 596, x1 = 790, sag = 26, top = 10;   // clear of the SCOOP prompt (ends ~577) and the LOAVES readout (starts ~800)
+  ctx.strokeStyle = '#8a6a44'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x0, top); ctx.quadraticCurveTo((x0+x1)/2, top+sag+10, x1, top); ctx.stroke();
+  const flagCols = ['#ff2d78','#ffd966','#5ac8e8','#5ac86a','#bf5fff'];
+  for (let i=0;i<9;i++){
+    const f = (i+0.5)/9;
+    // point on the quadratic swag
+    const px = (1-f)*(1-f)*x0 + 2*(1-f)*f*((x0+x1)/2) + f*f*x1;
+    const py = (1-f)*(1-f)*top + 2*(1-f)*f*(top+sag+10) + f*f*top;
+    ctx.fillStyle = flagCols[i % flagCols.length];
+    ctx.beginPath(); ctx.moveTo(px-9, py); ctx.lineTo(px+9, py); ctx.lineTo(px, py+16); ctx.closePath(); ctx.fill();
+  }
+  // "Happy Birthday!" placard hanging from the shelf on two cords
+  const sx = 150, sy = 132, sw = 196, sh = 40;
+  ctx.save();
+  ctx.strokeStyle = '#7a5a38'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(sx - sw/2 + 16, sy - sh/2); ctx.lineTo(sx, sy - sh/2 - 26);
+  ctx.moveTo(sx + sw/2 - 16, sy - sh/2); ctx.lineTo(sx, sy - sh/2 - 26);
+  ctx.stroke();
+  ctx.fillStyle = '#7a5a38';                       // hook on the shelf underside
+  ctx.beginPath(); ctx.arc(sx, sy - sh/2 - 27, 3, 0, 7); ctx.fill();
+  ctx.fillStyle = '#fdf2d8';                        // placard
+  rr(sx - sw/2, sy - sh/2, sw, sh, 7); ctx.fill();
+  ctx.strokeStyle = '#c4584a'; ctx.lineWidth = 2.5;
+  rr(sx - sw/2 + 4, sy - sh/2 + 4, sw - 8, sh - 8, 5); ctx.stroke();
+  ctx.fillStyle = '#c4584a';
+  ctx.font = 'bold 20px Trebuchet MS'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('Happy Birthday!', sx, sy + 1);
+  ctx.restore();
+  // balloon cluster on the right band, gently bobbing
+  const bal = [[648,'#ff2d78'],[684,'#ffd966'],[720,'#5ac8e8']];
+  for (let i=0;i<bal.length;i++){
+    const [bxp, col] = bal[i];
+    const by = 124 + Math.sin(t*1.4 + i)*3;
+    ctx.strokeStyle = 'rgba(80,60,40,.5)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(bxp, by+13); ctx.quadraticCurveTo(bxp+4, by+26, bxp-2, by+34); ctx.stroke();
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.ellipse(bxp, by, 11, 13.5, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.45)';
+    ctx.beginPath(); ctx.ellipse(bxp-4, by-5, 3, 4.2, -0.4, 0, 7); ctx.fill();
+  }
+}
 function drawKitchen(){
   // wall with subtle vertical wallpaper stripes
   ctx.fillStyle = '#e8d9b8'; ctx.fillRect(0,0,W,FLOOR_TOP+50);
@@ -731,6 +793,8 @@ function drawKitchen(){
   ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(300,60); ctx.lineTo(300+10*Math.cos(game.t*.3), 60+10*Math.sin(game.t*.3)); ctx.moveTo(300,60); ctx.lineTo(300+6*Math.cos(game.t*.05-1.5), 60+6*Math.sin(game.t*.05-1.5)); ctx.stroke();
   ctx.fillStyle = '#5a4330'; ctx.beginPath(); ctx.arc(300,60,2.5,0,7); ctx.fill();
+
+  if (BIRTHDAY) drawBirthdayDecor();
 
   // tile backsplash
   ctx.fillStyle = '#d8e0d8'; ctx.fillRect(0, FLOOR_TOP-44, W, 44);
@@ -975,6 +1039,22 @@ function drawZaddy(x, y){
     ctx.beginPath(); ctx.arc(-7+gx+1, hy-2, 1.7, 0, 7); ctx.arc(7+gx+1, hy-2, 1.7, 0, 7); ctx.fill();
     ctx.strokeStyle = '#2e2620'; ctx.lineWidth = 2.5;
     ctx.beginPath(); ctx.moveTo(-12+gx, hy-9); ctx.lineTo(-3+gx, hy-7); ctx.moveTo(3+gx, hy-7); ctx.lineTo(12+gx, hy-9); ctx.stroke();
+  }
+  // 🎂 birthday party hat — cosmetic only, sits above the bald skull (top y=-69).
+  // Symmetric so the ctx.scale(zaddy.face,1) mirror doesn't distort it.
+  if (BIRTHDAY){
+    const bx = 0, base = hy - 13, apex = hy - 46;
+    ctx.fillStyle = '#ff2d78';
+    ctx.beginPath(); ctx.moveTo(bx-14, base); ctx.lineTo(bx, apex); ctx.lineTo(bx+14, base); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.55)';   // zig-zag stripes
+    for (let i=1;i<=2;i++){
+      const f = i/3, yy = base - (base-apex)*f, hw = 14*(1-f);
+      ctx.fillRect(bx-hw, yy-1.6, hw*2, 3.2);
+    }
+    ctx.fillStyle = '#ffd966';                  // pom-pom
+    ctx.beginPath(); ctx.arc(bx, apex-1, 4.2, 0, 7); ctx.fill();
+    ctx.fillStyle = '#5ac8e8';                  // brim
+    ctx.beginPath(); ctx.ellipse(bx, base, 15, 3.6, 0, 0, 7); ctx.fill();
   }
   ctx.restore();
 
